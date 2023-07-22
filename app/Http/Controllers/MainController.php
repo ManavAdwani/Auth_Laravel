@@ -1,13 +1,19 @@
 <?php
-
 namespace App\Http\Controllers;
+// use File;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Hash;
 use App\Models\registration;
 use App\Models\file;
+use App\Models\zip;
+use App\Models\tag;
 use App\Models\pdf;
 use App\Http\Controllers\Auth;
 use Mail;
+use DB;
+
 use App\Mail\MailNotify;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\stroage;
@@ -25,10 +31,14 @@ class MainController extends Controller
         $reg = new registration; // This indicating new recored should be inserted
         $reg->name=$request->input('name');
         $reg->email=$request->input('email');
-        $reg->password=$request->input('pass');
-        $reg->confirm_password=$request->input('cpass');
+        $password = $request->input('pass');
+        $cpassword = $request->input('cpass');
+        $reg->password=Hash::make($request->input('pass'));
+        $reg->confirm_password=Hash::make($request->input('cpass'));
         // Checking that both the passwords are same or not 
-        if ($reg->password==$reg->confirm_password) {
+        if ($password==$cpassword) {
+            $request->session()->put('password', $password);
+
             // If yes then saving all the records in DB and ...
             $reg->save();
             // and sending mail to the users email with their password and Email
@@ -69,15 +79,24 @@ class MainController extends Controller
         // Taking all the input from the user and saving into variable
         $email = $request->input('email');
         $password = $request->input('pass');
-
-        // Assigning role to the user ( BY DEFAULT IT WILL BE 1 means USER ) Only admin can change the user to the Admin or anyother role x
+        $real_pass = Session::get('password');
+        // Assigning role to the user ( BY DEFAULT IT WILL BE 1 means ADMIN ) Only admin can change the user to the Admin or anyother role x
             // Here we are checking the role of the user from the DB/
         $role = registration::where('email',$email)->select('role')->first();
+        $DB_PASS = registration::where('email',$email)->select('password')->first();
+        $getPass = $DB_PASS->password;
+        // dd($getPass);
+        // dd($DB_PASS);
         // dd($role);
             // And after that we are checking that email is present in the DB or Not
         if(registration::where('email', '=', $email)->exists()){
             // if yes then we are checking the password with that email
-            if(registration::where('password', '=', $password)->where('email','=',$email)->exists()){
+
+            if(Hash::check($password, $getPass)){
+                $getName =  registration::where('email','=',$email)->select('name')->first();
+                $name = $getName->name;
+                $request->session()->put('name', $name);
+                // if($password == $getPass){
                 // and if both are correct then we are checking their role
                 if(registration::where('role','=',1)->where('email','=',$email)->exists()){
                     // If its 1 then we are sending them to the Admin page with session and all
@@ -127,11 +146,12 @@ class MainController extends Controller
 
     function uploading(Request $req){
         $req->validate([
-            'file' => 'required|mimes:png,jpg,jpeg|max:2048'
+            'tag'=>'required|alpha:ascii',
+            'desc'=>'required|alpha:ascii',
+            'file' => 'required|mimes:png,jpg,jpeg,zip|max:5048'
         ]);
         $email = Session::get('username');
-        $getName = registration::where('email','=',$email)->select('name')->first();
-        $name=$getName->name;
+       $name = Session::get('name');
         $ldate = date('Y-m-d H:i:s');
         // dd($name);
         $image = $req->file('file')->storeAs('public/images',$name.$ldate);
@@ -139,6 +159,8 @@ class MainController extends Controller
         $file = new file;
         $file->name=$name;
         $file->file_path=$image;
+        $file->file_tag=$req->input('tag');
+        $file->file_desc = $req->input('desc');
         $file->save();
         return back()->with('status', 'File Uploaded');
     }
@@ -186,7 +208,7 @@ class MainController extends Controller
     function forget_password(){
         return view('forget_pass');
     }
-
+    
     // it will check email first if it exists then only it can change the password
     function checkEmail(Request $req){
        $email = $req->input('email');
@@ -208,15 +230,17 @@ class MainController extends Controller
     function UpdatePass(Request $req){
         $email = Session::get('email');
         // dd($email);
-       $pass = $req->input('pass');
-       $cpass = $req->input('cpass');
-       if ($pass == $cpass) {
+        $password = $req->input('pass');
+        $cpassword = $req->input('cpass');
+        $req->password=Hash::make($req->input('pass'));
+        $req->confirm_password=Hash::make($req->input('cpass'));
+       if ($password == $cpassword) {
         // if yes then it will see which email is this
            $getId = registration::where('email','=',$email)->select('id')->first();
            $Id=$getId->id;
            $user = registration::find($Id);
-           $user->password = $req->input('pass');
-           $user->confirm_password=$req->input('cpass');
+           $user->password = Hash::make($req->input('pass'));
+           $user->confirm_password=Hash::make($req->input('cpass'));
            $user->update(); // then it will update that users password with alert
         return redirect('login')->with('status','Password changed successfully...Please login with new password');
        }
@@ -228,7 +252,7 @@ class MainController extends Controller
     // Logout page
     function logout(Request $request){
         $request->session()->forget('username');
-        return view('login');
+        return redirect('login');
     }
 
     // Pdf uploading File
@@ -252,19 +276,25 @@ class MainController extends Controller
 
     function pdf_uploading(Request $request){
         $request->validate([
-            'pdf' => 'required|mimes:pdf|max:2048'
+            'tag'=>'required|alpha:ascii',
+            'desc'=>'required|alpha:ascii',
+            'pdf' => 'required|mimes:pdf'
         ]);
         $email = Session::get('username');
         $name = Session::get('name');
         $ldate = date('Y-m-d H:i:s');
-        // dd($name);
-        $pp = public_path();
-        $file_name = $name.$ldate;
-        $pdf_path = $request->file('pdf')->storeAs(public_path($name.$ldate));
+        $pubc=public_path();
+        // dd($pubc);
+
+        $file = $request->file('pdf');
+        $fileName = $file->getClientOriginalName();
+        $file->move(public_path('pdfs'), $fileName);
         $pdf = new pdf;
         $pdf->name=$name;
-        $pdf->file_name=$file_name;
-        $pdf->file_path=$pdf_path;
+        $pdf->file_name=$name.'_'.$ldate.'_'.$fileName;
+        $pdf->file_tag=$request->input('tag');
+        $pdf->file_desc = $request->input('desc');
+        $pdf->file_path=public_path('pdfs').'/'.$fileName;
         $pdf->save();
         return back()->with('status','File uploaded');
 
@@ -277,17 +307,26 @@ class MainController extends Controller
        return view('showPdf',compact('data'));
     }
 
-    function download(Request $request, $file){
-        $file_path = public_path($file);
-        // dd($file);
-        $headers = array(
-            'Content-Type: application/pdf',
-          );
-    return response()->download('storage'.$file_path, $file, $headers);
-    }
+    // function download(Request $request, $file){
+    //     $file_path = public_path('pdfs/'.$file);
+    //     // dd($file_path);
+    //     $headers = array(
+    //         'Content-Type: application/pdf',
+    //       );
+    //     return response()->download($file_path, $file, $headers);
+    // }
+
+    // function downloadIMG(Request $request, $file){
+    //     $file_path = public_path('pdfs/'.$file);
+    //     // dd($file_path);
+    //     $headers = array(
+    //         'Content-Type: application/pdf',
+    //       );
+    //     return response()->download($file_path, $file, $headers);
+    // }
 
     function view(Request $request, $id){
-        $data = pdf::find($id);
+        $data = pdf::find($id); 
         return view('viewpdfs', compact('data'));
     }
 
@@ -308,11 +347,13 @@ class MainController extends Controller
             $reg->name=$request->input('name');
             $reg->email=$request->input('email');
             $reg->role =$request->input('role');
+            $password = $request->input('pass');
+            $cpassword = $request->input('cpass');
             // dd($reg->role);
-            $reg->password=$request->input('pass');
-            $reg->confirm_password=$request->input('cpass');
+            $reg->password=Hash::make($request->input('pass'));
+        $reg->confirm_password=Hash::make($request->input('cpass'));
             // Checking that both the passwords are same or not 
-            if ($reg->password==$reg->confirm_password) {
+            if ($password==$cpassword) {
                 // If yes then saving all the records in DB and ...
                 $reg->save();
                 // and sending mail to the users email with their password and Email
@@ -335,24 +376,24 @@ class MainController extends Controller
             return view('image_edit',compact('id'));
         }
 
-        function editing(Request $req, $id){
-            // dd($id);
-            $req->validate([
-                'file' => 'required|mimes:png,jpg,jpeg|max:2048'
-            ]);
-            $email = Session::get('username');
-            $name = Session::get('name');
-            $ldate = date('Y-m-d H:i:s');
-            // dd($name);
-            $image = $req->file('file')->storeAs('public/images',$name.$ldate);
-            $image;
-            $file = file::find($id);
-            // $file = new file;
-            $file->name=$name;
-            $file->file_path=$image;
-            $file->update();
-            return back()->with('status', 'File Edited');
-        }
+        // function editing(Request $req, $id){
+        //     // dd($id);
+        //     $req->validate([
+        //         'file' => 'required|mimes:png,jpg,jpeg|max:2048'
+        //     ]);
+        //     $email = Session::get('username');
+        //     $name = Session::get('name');
+        //     $ldate = date('Y-m-d H:i:s');
+        //     // dd($name);
+        //     $image = $req->file('file')->storeAs('public/images',$name.$ldate);
+        //     $image;
+        //     $file = file::find($id);
+        //     // $file = new file;
+        //     $file->name=$name;
+        //     $file->file_path=$image;
+        //     $file->update();
+        //     return back()->with('status', 'File Edited');
+        // }
 
         function deleteImg(Request $request , $id){
             $file = file::find($id);
@@ -373,10 +414,17 @@ class MainController extends Controller
             $registration -> name =$request['name'];
             $registration -> email =$request['email'];
             $registration->role=$request['role'];
-            $registration->password = $request['pass'];
-            $registration->confirm_password=$request['cpass'];
+            $password = $request->input('pass');
+            $cpassword = $request->input('cpass');
+            $registration->password = Hash::make($request->input('pass'));
+            $registration->confirm_password=Hash::make($request['cpass']);
             $registration->save();
-            return redirect('userList')->with('status', 'User Update Successfully');
+            if ($password==$cpassword) {
+                return redirect('userList')->with('status', 'User Update Successfully');
+            }
+            else{
+                return back()->with('failed','Password should be Same...');
+            }
         }
 
         function deleteUser(Request $request, $id){
@@ -386,6 +434,7 @@ class MainController extends Controller
 
         function deleteFiles(Request $request, $id){
             $file = file::find($id)->delete();
+            // $file->delete();
             return redirect('list')->with('status', 'User File Deleted Successfully');
         }
 
@@ -393,6 +442,314 @@ class MainController extends Controller
             return view('admin_file');
         }
 
+        function allPdfs(){
+            $data = pdf::all(); 
+            return view('showAllPdf', compact('data'));
+        }
+        function deletePdfs(Request $request, $id){
+            $pdf = pdf::find($id)->delete();
+            // $file->delete();
+            return redirect('allPdf')->with('status', 'User File Deleted Successfully');
+        }
+
+        function zipupload(Request $request){
+            $request->validate([
+                'tag'=>'required',
+                'desc'=>'required',
+                'zip' => 'required|mimes:zip|max:5048'
+            ]);
+            $email = Session::get('username');
+            $name = Session::get('name');
+            $ldate = date('m-d');
+            $pubc=public_path();
+            // dd($pubc);
+    
+            $file = $request->file('zip');
+            $fileName = $file->getClientOriginalName();
+            $file->move(public_path('zips'), $fileName);
+            $zip = new zip;
+            $zip->name=$name;
+            $zip->file_name=$fileName;
+            $zip->file_store_as=$name.'__'.$fileName;
+            $zip->file_desc = $request->input('desc');
+            $zip->file_path=public_path('zips').'/'.$fileName;
+            $zip->save();
+            return back()->with('status','File uploaded');
+        }
+        function showZip(){
+            $name = Session::get('name');
+             // dd($name);
+            $data = zip::where('name',$name)->get();
+            return view('showZip',compact('data'));
+        }
+
+        // function downloadzip(Request $request, $file){
+        //     $file_path = public_path('zips/'.$file);
+        //     // dd($file_path);
+        //     $headers = array(
+        //         'Content-Type: application/zip',
+        //       );
+        //     return response()->download($file_path, $file, $headers);
+        // }
+
+        // function fileuploading(Request $req){
+        //     $req->validate([
+        //         'ss'=>'required|mimes:png,jpg',
+        //         'tag'=>'required',
+        //         'desc'=>'required',
+        //         'type'=>'required',
+        //         'file' => 'required'
+        //     ]);
+        //     $email = Session::get('username');
+        //     $name = Session::get('name');
+        //     // dd($name);
+        //     $ldate = now()->timestamp;
+        //     $pubc=public_path();
+        //     // dd($name);
+        //     $file = $req->file('file');
+        //     $ss = $req->file('ss');
+        //     $filename = $file->getClientOriginalName();
+        //     $ssname = $ss->getClientOriginalName();
+        //     $file->move(public_path('zips'), $ldate."_".$filename);
+        //     $ss->move(public_path('screenshot'), $ldate."_".$ssname);
+        //     $file = new file;
+        //     $file->name=$name;
+        //     $file->file_name=$ldate."_".$filename;
+        //     $file->screenshot=$ldate."_".$ssname;
+        //     $file->file_type = $req->input('type');
+        //     $file->file_desc=$req->input('desc');
+        //     $file->file_path=public_path('zips').'/'.$filename;
+        //     // $userTag= $req->input('tag');
+        //     $file->file_tag=$req->input('tag');
+        //     // dd($req->input('tag'));
+        //     $value = explode(',', $req->input('tag')) ;
+        //     // print_r($value);die;
+        //     foreach($value as $tagy){
+        //         if(!DB::table('tags')->where('tags', $tagy)->exists()){
+        //             $tag = new tag;
+        //             $tag->tags=$tagy;
+        //             $tag->save();
+        //         }
+        //     }
+           
+        //     $file->save();
+        //     return back()->with('status', 'File Uploaded');
+           
+            
+        // }
+
+        function fileDownload(Request $request, $file){
+            $name = Session::get('name');
+            $file_path = public_path('zips/'.$name."/".$file);
+            // dd($file_path);
+            return response()->download($file_path, $file);
+        }
+
+        function deleteFile(Request $request, $id){
+            $file = file::find($id);
+            if( $file->delete()){
+                return back()->with('status', 'Deleted');
+            }else{
+                return back()->with('failed', 'Error try again letter');
+            }
+        }
+
+        function tags(Request $request){
+            $data = tag::all();
+            return view('uploadFiles', compact('data'));
+        }
+
+        function editFile(Request $request , $id){
+            $editData  =   File :: find($id) ;
+            $data = tag::all();
+            // $post = file::where('id', $id)->firstOrFail();
+            return view('editFile',compact('editData'),compact('data'));
+        }
+
+    //     function updatingFile(Request $request, $id){
+    //         // dd($id);
+    //         $file = file::find($id);
+    //         if(request()->hasFile('file')){
+    //         $request->validate([
+    //             'file' => 'required'
+    //         ]);
+    //         $email = Session::get('username');
+    //         $name = Session::get('name');
+    //         $file->name = $request->input('name');
+    //         $file->file_tag = $request->input('tag');
+    //         $file->file_desc = $request->input('desc');
+    //         $ldate = now()->timestamp;
+    //         $pubc=public_path();
+    //         // dd($name);
+    //         $files = $request->file('file');
+    //         $filename = $files->getClientOriginalName();
+    //         $files->move(public_path('zips'), $ldate."_".$filename);
+    //         $file->file_name=$ldate."_".$filename;
+    //         $file->file_type=$request->input('type');
+    //         $file->file_path=public_path('zips').'/'.$filename;
+    //         $file->update();
+    //         return back()->with('status', 'File Edited');
+    //     }
+    // }
+
+    // MULTIPLE CHECKING
+    // function fileuploading(Request $req){
+    //     $req->validate([
+    //         'tag'=>'required',
+    //         'desc'=>'required',
+    //         'type'=>'required',
+    //         'file' => 'required'
+    //     ]);
+    //     $email = Session::get('username');
+    //     $name = Session::get('name');
+    //     // dd($name);
+    //     $ldate = now()->timestamp;
+    //     $pubc=public_path();
+    //     // dd($name);
+    //     // $file = $req->file('file');
+    //     $fileNames = [];
+    //     foreach($req->file('file') as $file){
+    //         $filename = $file->getClientOriginalName();
+    //         $file->move(public_path('zips'), $ldate."_".$filename);
+    //         $fileNames = $ldate."_".$filename;
+    //     }
+    //     $zips = json_encode($fileNames);
+    //     $file = new file;
+    //     $file->name=$name;
+    //     $file->file_name=$ldate."_".$filename;
+    //     $file->file_type = $req->input('type');
+    //     $file->file_desc=$req->input('desc');
+    //     $file->file_path=public_path('zips').'/'.$zips;
+    //     $tag = new tag;
+    //     $userTag= $req->input('tag');
+    //     $file->file_tag=$req->input('tag');
+    //     if(!DB::table('tags')->where('tags', $userTag)->exists()){
+    //         $tag->tags=$req->input('tag');
+    //         $tag->save();
+    //     }
+    //     $file->save();
+    //     return back()->with('status', 'File Uploaded');
+       
+        
+    // }
+
+    function fileuploading(Request $req){
+        $req->validate([
+            'ss'=>'required|mimes:png,jpg,jpeg',
+            'tag'=>'required',
+            'desc'=>'required',
+            'type'=>'required',
+            'file' => 'required'
+        ]);
+        $email = Session::get('username');
+        $name = Session::get('name');
+        // dd($name);
+        $ldate = now()->timestamp;
+        $pubc=public_path();
+        // dd($name);
+        // $folder = Storage::makeDirectory(public_path($name));
+        // dd($folder);
+        $file = $req->file('file');
+        $ss = $req->file('ss');
+        $ssname = $ss->getClientOriginalName();
+        foreach($file as $ekFile){
+           
+            $files = new file;
+            $files->name=$name;
+            $filename = $ekFile->getClientOriginalName();
+            $ekFile->move(public_path('zips/'.$name), $ldate."_".$filename);
+            $files->file_name=$ldate."_".$filename;
+            $files->file_path=public_path('zips/'.$name).'/'.$filename;
+            $files->screenshot=$ldate."_".$ssname;
+            $files->file_type = $req->input('type');
+            $files->file_desc=$req->input('desc');
+            // $file->file_name=$ldate."_".$filename;
+       
+       
+            // $userTag= $req->input('tag');
+            $files->file_tag=$req->input('tag');
+            // dd($req->input('tag'));
+            $value = explode(',', $req->input('tag')) ;
+            // print_r($value);die;
+            foreach($value as $tagy){
+                 if(!DB::table('tags')->where('tags', $tagy)->exists()){
+                $tag = new tag;
+                $tag->tags=$tagy;
+                $tag->save();
+            }
+        }
+    }
+    
+        $ss->move(public_path('screenshot'), $ldate."_".$ssname);
+        $files->save();
+        return back()->with('status', 'File Uploaded');
+       
+        
+    }
+
+    // Editing File
+    function updatingFile(Request $req, $id){
+        $req->validate([
+            'ss'=>'required|mimes:png,jpg,jpeg',
+            'tag'=>'required',
+            'desc'=>'required',
+            'type'=>'required',
+            'file' => 'required'
+        ]);
+        $email = Session::get('username');
+        $name = Session::get('name');
+        // dd($name);
+        $ldate = now()->timestamp;
+        $pubc=public_path();
+        // dd($name);
+        // $folder = Storage::makeDirectory(public_path($name));
+        // dd($folder);
+        $file = $req->file('file');
+        $ss = $req->file('ss');
+        $ssname = $ss->getClientOriginalName();
+        foreach($file as $ekFile){
+           $files = file::find($id);
+            // $files = new file;
+            $files->name=$name;
+            $filename = $ekFile->getClientOriginalName();
+            $ekFile->move(public_path('zips/'.$name), $ldate."_".$filename);
+            $files->file_name=$ldate."_".$filename;
+            $files->file_path=public_path('zips/'.$name).'/'.$filename;
+            $files->screenshot=$ldate."_".$ssname;
+            $files->file_type = $req->input('type');
+            $files->file_desc=$req->input('desc');
+            // $file->file_name=$ldate."_".$filename;
+       
+       
+            // $userTag= $req->input('tag');
+            $files->file_tag=$req->input('tag');
+            // dd($req->input('tag'));
+            $value = explode(',', $req->input('tag')) ;
+            // print_r($value);die;
+            foreach($value as $tagy){
+                 if(!DB::table('tags')->where('tags', $tagy)->exists()){
+                    $tag = new tag;
+                        $tag->tags=$tagy;
+                $tag->save();
+            }
+        }
+    }
+    
+        $ss->move(public_path('screenshot'), $ldate."_".$ssname);
+        $files->save();
+        return back()->with('status', 'File Updated');
+       
+    }
+
+    function viewFile(Request $request, $filename){
+            $data = pdf::find($id); 
+            dd($filename);
+            // return view('seeSS', compact('data'));
+        
+    }
+
+    function checking(){
+        return "GHE";
+    }
 
 }
-

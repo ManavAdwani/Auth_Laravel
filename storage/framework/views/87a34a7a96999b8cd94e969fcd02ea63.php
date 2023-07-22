@@ -5,41 +5,63 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Bootstrap demo</title>
+    <link rel="stylesheet" href="<?php echo e(asset('Css/userfile.css')); ?>">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+        integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"
         integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM" crossorigin="anonymous">
 </head>
 
 <body>
-    <nav class="navbar navbar-expand-lg bg-body-tertiary">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="#">Dweek Studios</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
-                data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false"
-                aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarSupportedContent">
-                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                    <li class="nav-item">
-                        <a class="nav-link active" aria-current="page" href="#">Home</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="<?php echo e(route('UserFiles')); ?>">Image Files</a>
-                    </li>
+    <nav class="main-nav">
+        <ul>
+            <a class="logo" href="<?php echo e(route('homepage')); ?>">
+                <img src="<?php echo e(asset('Css/Google__G__Logo.svg.webp')); ?>" alt="">
+                <span class="nav-items">Dweek Studios</span>
+            </a>
 
-                    <li class="nav-item">
-                        <a class="nav-link" href="<?php echo e(route('pdf')); ?>">Upload Pdfs</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="<?php echo e(route('showpdf')); ?>">Pdf Files</a>
-                    </li>
-                </ul>
-                <form class="d-flex" role="search">
-                    <a class="nav-link" href="<?php echo e(route('logout')); ?>">Logout</a>
-                </form>
-            </div>
-        </div>
+            <li>
+                <a href="<?php echo e(route('homepage')); ?>">
+                    <i class="fas fa-home"></i>
+                    <span class="nav-items">Home</span>
+                </a>
+            </li>
+            <li>
+                <a href="<?php echo e(route('imgupload')); ?>">
+                    <i class="fas fa-upload"></i>
+                    <span class="nav-items">Upload Images</span>
+                </a>
+            </li>
+
+            <li>
+                <a href="<?php echo e(route('UserFiles')); ?>">
+                    <i class="fas fa-image"></i>
+                    <span class="nav-items">Image Files</span>
+                </a>
+            </li>
+            
+            <li>
+                <a href="<?php echo e(route('zipupload')); ?>">
+                    <i class="fas fa-file-archive"></i>
+                    <span class="nav-items">Upload Zip files</span>
+                </a>
+            </li>
+            <li>
+                <a href="<?php echo e(route('showZip')); ?>">
+                    <i class="fas fa-box"></i>
+                    <span class="nav-items">Zip files</span>
+                </a>
+            </li>
+            <li>
+                <a class="logout" href="<?php echo e(route('logout')); ?>">
+                    <i class="fas fa-sign-out"></i>
+                    <span class="nav-items">Logout</span>
+                </a>
+            </li>
+        </ul>
     </nav>
+    <br><br><br><br>
     <center>
         <h2>Edit File</h2>
     </center>

@@ -13,7 +13,6 @@
 </head>
 
 <body>
-
     <section class="vh-100">
         <div class="container py-5 h-100">
             <div class="row d-flex align-items-center justify-content-center h-100">
@@ -64,12 +63,6 @@
                         </div>
 
                         <div class="d-flex justify-content-around align-items-center mb-4">
-                            <!-- Checkbox -->
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" value="" id="form1Example3"
-                                    checked />
-                                <label class="form-check-label" for="form1Example3"> Remember me </label>
-                            </div>
                             <a href="<?php echo e(route('forget')); ?>">Forgot password?</a>
                         </div>
 

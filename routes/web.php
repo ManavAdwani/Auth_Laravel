@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\MainController;
+use App\Http\Controllers\ZipController;
 
 /*
 |--------------------------------------------------------------------------
@@ -150,4 +151,10 @@ Route::group(['middleware'=>"web"], function(){
      // View Screenshot
      Route::get('seeFile/{filename}', [MainController::class, 'viewFile'])->name('viewFile');
      Route::get('/checkSS', [MainController::class, 'checking'])->name('checking');
+
+     Route::get('/downloadZip/{filename}', [ZipController::class , "downloadFile"])->name('downloadzipss');
+    // Route::get('/downloadZip/{filename}/{username}', function(){
+    //     return "HELO";
+    // })->name('downloadzipss');
+  
 });
